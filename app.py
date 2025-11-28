@@ -5,14 +5,14 @@ from flask import Flask, request, jsonify, render_template_string
 from twilio.rest import Client
 from dotenv import load_dotenv
 
-# Load .env locally (Railway allows env variables via dashboard)
+# Load environment variables
 load_dotenv()
 
 # ---- Twilio credentials ----
 TWILIO_ACCOUNT_SID = os.getenv("TWILIO_SID")
 TWILIO_AUTH_TOKEN = os.getenv("TWILIO_TOKEN")
 TWILIO_FROM_NUMBER = os.getenv("TWILIO_NUMBER")
-FIXED_OTP = os.getenv("FIXED_OTP", "123456")  # Default OTP
+FIXED_OTP = os.getenv("FIXED_OTP", "123456")  # Default OTP if not set
 
 if not (TWILIO_ACCOUNT_SID and TWILIO_AUTH_TOKEN and TWILIO_FROM_NUMBER):
     print("Warning: Twilio credentials missing. OTP sending won't work!")
@@ -28,8 +28,8 @@ def get_twilio_client():
 # ---- Flask app ----
 app = Flask(__name__)
 
-# ---- Rate limiter ----
-RATE_LIMIT_WINDOW = 60        # seconds
+# ---- Simple rate limiter per IP ----
+RATE_LIMIT_WINDOW = 60  # seconds
 MAX_PER_WINDOW = 3
 _recent_requests = {}  # ip -> [timestamps]
 
