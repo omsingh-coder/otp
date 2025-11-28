@@ -12,12 +12,12 @@ load_dotenv()
 TWILIO_ACCOUNT_SID = os.getenv("TWILIO_SID")
 TWILIO_AUTH_TOKEN = os.getenv("TWILIO_TOKEN")
 TWILIO_FROM_NUMBER = os.getenv("TWILIO_NUMBER")
-FIXED_OTP = os.getenv("FIXED_OTP", "123456")  # Default OTP if not set
+FIXED_OTP = os.getenv("FIXED_OTP", "123456")  # Default OTP
 
 if not (TWILIO_ACCOUNT_SID and TWILIO_AUTH_TOKEN and TWILIO_FROM_NUMBER):
     print("Warning: Twilio credentials missing. OTP sending won't work!")
 
-# Initialize Twilio client lazily
+# Lazy Twilio client
 _twilio_client = None
 def get_twilio_client():
     global _twilio_client
@@ -29,9 +29,9 @@ def get_twilio_client():
 app = Flask(__name__)
 
 # ---- Simple rate limiter per IP ----
-RATE_LIMIT_WINDOW = 60  # seconds
+RATE_LIMIT_WINDOW = 60       # seconds
 MAX_PER_WINDOW = 3
-_recent_requests = {}  # ip -> [timestamps]
+_recent_requests = {}        # ip -> [timestamps]
 
 def clean_old(ip):
     now = time.time()
@@ -82,31 +82,37 @@ async function sendOtp(e){
   const phone = document.getElementById('phone').value.trim();
   const status = document.getElementById('status');
   const btn = document.getElementById('sendBtn');
+
   status.hidden = true;
   btn.disabled = true;
   btn.textContent = 'Sending...';
+
   try {
     const res = await fetch('/send-otp', {
       method: 'POST',
       headers: {'Content-Type':'application/json'},
       body: JSON.stringify({phone})
     });
+
     const data = await res.json();
+
     if(res.ok){
       status.style.borderLeft = '4px solid #10b981';
-      status.innerHTML = <strong>Success:</strong> ${data.message};
+      status.innerHTML = "<strong>Success:</strong> " + data.message;
     } else {
       status.style.borderLeft = '4px solid #ef4444';
-      status.innerHTML = <strong>Error:</strong> ${data.error || data.message};
+      status.innerHTML = "<strong>Error:</strong> " + (data.error || data.message);
     }
+
   } catch(err){
     status.style.borderLeft = '4px solid #ef4444';
-    status.innerHTML = <strong>Error:</strong> ${err.message};
-  } finally {
-    status.hidden = false;
-    btn.disabled = false;
-    btn.textContent = 'Send OTP';
+    status.innerHTML = "<strong>Error:</strong> " + err.message;
   }
+
+  status.hidden = false;
+  btn.disabled = false;
+  btn.textContent = 'Send OTP';
+
   return false;
 }
 </script>
@@ -125,11 +131,13 @@ def send_otp():
     if "," in client_ip:
         client_ip = client_ip.split(",")[0].strip()
 
-if too_many_requests(client_ip):
+    # Rate limit check
+    if too_many_requests(client_ip):
         return jsonify({"error": "Rate limit exceeded. Try again later."}), 429
 
     data = request.get_json(silent=True) or {}
     phone = normalize_phone(data.get("phone", ""))
+
     if not phone:
         return jsonify({"error": "Phone number required."}), 400
 
@@ -142,11 +150,10 @@ if too_many_requests(client_ip):
     otp = FIXED_OTP
     message_body = f"Your verification code is: {otp}"
 
-    # Dev mode: If Twilio credentials missing
+    # Dev mode
     if not (TWILIO_ACCOUNT_SID and TWILIO_AUTH_TOKEN and TWILIO_FROM_NUMBER):
         return jsonify({"message": f"(DEV) Would send to {phone}: {message_body}"}), 200
 
-    # Send OTP via Twilio
     try:
         twilio_client = get_twilio_client()
         sent = twilio_client.messages.create(
@@ -155,10 +162,13 @@ if too_many_requests(client_ip):
             to=phone
         )
         return jsonify({"message": f"OTP sent to {phone}. SID: {sent.sid}"}), 200
+
     except Exception as e:
         print("Twilio send error:", str(e))
         return jsonify({"error": "Failed to send SMS. Check server logs and Twilio configuration."}), 500
 
+
+# ---- Main ----
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
     app.run(host="0.0.0.0", port=port)
