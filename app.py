@@ -142,9 +142,11 @@ if too_many_requests(client_ip):
     otp = FIXED_OTP
     message_body = f"Your verification code is: {otp}"
 
+    # Dev mode: If Twilio credentials missing
     if not (TWILIO_ACCOUNT_SID and TWILIO_AUTH_TOKEN and TWILIO_FROM_NUMBER):
         return jsonify({"message": f"(DEV) Would send to {phone}: {message_body}"}), 200
 
+    # Send OTP via Twilio
     try:
         twilio_client = get_twilio_client()
         sent = twilio_client.messages.create(
